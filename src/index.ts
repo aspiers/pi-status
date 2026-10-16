@@ -278,9 +278,17 @@ function buildTitle(config: PiStatusConfig, state: RuntimeState, pi: ExtensionAP
   return parts.join(config.separator);
 }
 
-function setTitle(config: PiStatusConfig, state: RuntimeState, pi: ExtensionAPI, ctx: ExtensionContext): void {
+function setTitle(
+  config: PiStatusConfig,
+  state: RuntimeState,
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+  force = false,
+): void {
   if (state.destroyed) return;
   if (!ctx.hasUI) return;
+  // Disabled means another owner (the shell, tmux, a host app) keeps the title.
+  if (!state.enabled && !force) return;
   ctx.ui.setTitle(buildTitle(config, state, pi, ctx));
 }
 
@@ -319,6 +327,7 @@ export default function piStatus(pi: ExtensionAPI) {
 
   function stop(ctx: ExtensionContext): void {
     if (state.destroyed) return;
+    const wasRunning = state.running;
     if (state.timer) {
       clearInterval(state.timer);
       state.timer = undefined;
@@ -330,7 +339,8 @@ export default function piStatus(pi: ExtensionAPI) {
     state.running = false;
     state.frameIndex = 0;
     state.currentTool = "";
-    setTitle(config, state, pi, ctx);
+    // Turning pi-status off mid-turn should not leave a frozen spinner frame in the title.
+    setTitle(config, state, pi, ctx, wasRunning);
     // Schedule recursive re-assert to catch pi-autoname naming (which triggers pi's title override)
     scheduleIdleReassert(ctx, IDLE_REASSERT_START_MS);
   }
