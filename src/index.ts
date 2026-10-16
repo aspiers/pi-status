@@ -50,6 +50,7 @@ const GHOSTTY_KEEPALIVE_MS = 1000;
 const GHOSTTY_FOCUS_IN = "\x1b[I";
 const GHOSTTY_FOCUS_OUT = "\x1b[O";
 const DISABLE_ENV = "PI_STATUS_DISABLED";
+const ORCA_PANE_ENV = "ORCA_PANE_KEY";
 
 const ALL_COMPONENT_IDS = [
   "spinner",
@@ -163,9 +164,18 @@ function writePiStatusConfig(config: PiStatusConfig): void {
   writeFileSync(targetPath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
 }
 
-function isDisabledByEnv(): boolean {
+/** Why the environment turns pi-status off by default, or null if it does not. */
+function envDisableReason(): string | null {
   const value = process.env[DISABLE_ENV]?.trim().toLowerCase();
-  return value === "1" || value === "true" || value === "yes" || value === "on";
+  if (value === "1" || value === "true" || value === "yes" || value === "on") return DISABLE_ENV;
+  // Orca runs its own pi title spinner and reads it as agent status; a second writer
+  // overwrites it every frame and the terminal re-renders the title for each one.
+  if (process.env[ORCA_PANE_ENV]) return "Orca";
+  return null;
+}
+
+function isDisabledByEnv(): boolean {
+  return envDisableReason() !== null;
 }
 
 // ---------------------------------------------------------------------------
@@ -858,8 +868,9 @@ export default function piStatus(pi: ExtensionAPI) {
       const enabledText = (enabled: boolean) =>
         enabled ? theme.fg("success", "enabled") : theme.fg("warning", "disabled");
       const statusText = () => {
-        if (!state.enabled && isDisabledByEnv()) {
-          return theme.fg("warning", "disabled") + theme.fg("dim", ` by ${DISABLE_ENV}`);
+        const reason = envDisableReason();
+        if (!state.enabled && reason) {
+          return theme.fg("warning", "disabled") + theme.fg("dim", ` by ${reason}`);
         }
         return enabledText(state.enabled);
       };

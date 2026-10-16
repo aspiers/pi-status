@@ -142,6 +142,8 @@ PI_STATUS_DISABLED=1 pi
 
 Accepted truthy values are `1`, `true`, `yes`, and `on`.
 
+The extension is also disabled by default inside [Orca](https://github.com/stablyai/orca) terminals (when `ORCA_PANE_KEY` is set). Orca installs its own pi title spinner and reads it to track agent status, so a second spinner overwrites it on every frame. `/pi-status on` still turns it on for that session.
+
 ## Development
 
 ```bash
